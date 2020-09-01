@@ -81,6 +81,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		case *ast.FuncDecl:
 			// idxはエラーが現れる場所の数値
 			idx, err := errorCheker(decl, pass)
+			if err != nil {
+				log.Println(err)
+			}
 			flag, err := search(decl.Body.List, idx)
 			if err != nil {
 				log.Println(err)
