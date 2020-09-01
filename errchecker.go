@@ -22,6 +22,7 @@ var Analyzer = &analysis.Analyzer{
 }
 
 // errorChecker returns the index of error in the return value
+// todo: 複数のエラーがあった場合の対処
 func errorCheker(n *ast.FuncDecl) (int, error) {
 	// 受け取った関数定義の引数リスト
 	fieldList := n.Type.Results.List
@@ -75,6 +76,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	inspect.Preorder(nodeFilter, func(decl ast.Node) {
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
+			// idxはエラーが現れる場所の数値
 			idx, err := errorCheker(decl)
 			flag, err := search(decl.Body.List, idx)
 			if err != nil {
