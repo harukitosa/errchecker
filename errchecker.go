@@ -3,7 +3,6 @@ package errchecker
 import (
 	"go/ast"
 	"log"
-	"strconv"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -31,6 +30,7 @@ func errorCheker(n *ast.FuncDecl) (int, error) {
 	for idx, t := range fieldList {
 		switch ty := t.Type.(type) {
 		case *ast.Ident:
+			// Question:ここを厳密に型比較で行う場合はどうしたらいいのか？
 			if ty.Name == "error" {
 				isErrorExist = true
 				index = idx
@@ -49,11 +49,9 @@ func search(body []ast.Stmt, idx int) (bool, error) {
 	for _, stmt := range body {
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
-			log.Println("return statement")
 			switch lit := let.Results[idx].(type) {
 			// nilの場合は*ast.Indentにふり分けられる
 			case *ast.Ident:
-				log.Printf("error:%s", lit.Name)
 				if lit.Name != "nil" {
 					return false, nil
 				}
@@ -62,7 +60,8 @@ func search(body []ast.Stmt, idx int) (bool, error) {
 			}
 		case *ast.IfStmt:
 			isReturnNil, _ = search(let.Body.List, idx)
-			log.Printf("if statement %s", strconv.FormatBool(isReturnNil))
+		case *ast.ForStmt:
+			isReturnNil, _ = search(let.Body.List, idx)
 		}
 	}
 	return isReturnNil, nil

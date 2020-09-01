@@ -53,7 +53,7 @@ func sample7() (int, error) {
 
 // test case 8
 // for statement
-func sample8() (int, error) {
+func sample8() (int, error) { // want "It returns nil in all the places where it should return error"
 	for {
 		if false {
 			return 0, nil
