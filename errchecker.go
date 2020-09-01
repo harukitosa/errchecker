@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"log"
 
+	"github.com/gostaticanalysis/analysisutil"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -23,7 +24,7 @@ var Analyzer = &analysis.Analyzer{
 
 // errorChecker returns the index of error in the return value
 // todo: 複数のエラーがあった場合の対処
-func errorCheker(n *ast.FuncDecl) (int, error) {
+func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
 	// 受け取った関数定義の引数リスト
 	fieldList := n.Type.Results.List
 	var isErrorExist bool
@@ -32,7 +33,9 @@ func errorCheker(n *ast.FuncDecl) (int, error) {
 		switch ty := t.Type.(type) {
 		case *ast.Ident:
 			// Question:ここを厳密に型比較で行う場合はどうしたらいいのか？
-			if ty.Name == "error" {
+			s := pass.TypesInfo.Types[ty]
+			if analysisutil.ImplementsError(s.Type) {
+				log.Println("error")
 				isErrorExist = true
 				index = idx
 			}
@@ -77,7 +80,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
 			// idxはエラーが現れる場所の数値
-			idx, err := errorCheker(decl)
+			idx, err := errorCheker(decl, pass)
 			flag, err := search(decl.Body.List, idx)
 			if err != nil {
 				log.Println(err)
