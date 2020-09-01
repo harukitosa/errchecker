@@ -37,19 +37,23 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			// 本文decl.Body.Listからreturn文がある一行を取得している
 			for _, stmt := range decl.Body.List {
 				// return文を取得している
+				log.Println(stmt)
 				ret, _ := stmt.(*ast.ReturnStmt)
 				if ret == nil {
+					log.Println("ret return")
 					continue
 				}
 				// Resultsが0の時第一引数
-				isReturnNil := true
+				var isReturnNil bool
 				switch lit := ret.Results[idx].(type) {
-				case *ast.BasicLit:
-					log.Println(lit.Kind)
+				// case *ast.BasicLit:
+				// 	log.Println(lit.Kind)
+				// case *ast.CallExpr:
+				// 	log.Println("call statement")
 				case *ast.Ident:
 					log.Printf("error:%s", lit.Name)
-					if lit.Name != "nil" {
-						isReturnNil = false
+					if lit.Name == "nil" {
+						isReturnNil = true
 					}
 				}
 				if isReturnNil {
