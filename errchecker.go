@@ -26,42 +26,36 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
 	}
-	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		switch n := n.(type) {
+	inspect.Preorder(nodeFilter, func(decl ast.Node) {
+		switch decl := decl.(type) {
 		case *ast.FuncDecl:
-			_, err := errorCheker(n)
+			idx, err := errorCheker(decl)
 			if err != nil {
 				log.Println(err)
 			}
-
 			// 追加
 			// 本文decl.Body.Listからreturn文がある一行を取得している
-			// for _, stmt := range decl.Body.List {
-			// 	// return文を取得している
-			// 	ret, _ := stmt.(*ast.ReturnStmt)
-			// 	if ret == nil || len(ret.Results) != 1 {
-			// 		continue
-			// 	}
-
-			// 	// BasicListを取得している
-			// 	// basicLitは数値リテラルや文字列リテラル
-			// 	lit, _ := ret.Results[0].(*ast.BasicLit)
-			// 	// 今回は文字列リテラル以外は無視
-			// 	if lit == nil || lit.Kind != token.STRING {
-			// 		continue
-			// 	}
-
-			// 	// カラ文字なので"" ``などを除く
-			// 	str, err := strconv.Unquote(lit.Value)
-			// 	if err != nil {
-			// 		return nil, err
-			// 	}
-			// 	// 該当もじがからならNGを返す
-			// 	if str == "" {
-			// 		pass.Reportf(lit.Pos(), "NG")
-			// 	}
-			// }
-			// ここまで
+			for _, stmt := range decl.Body.List {
+				// return文を取得している
+				ret, _ := stmt.(*ast.ReturnStmt)
+				if ret == nil {
+					continue
+				}
+				// Resultsが0の時第一引数
+				isReturnNil := true
+				switch lit := ret.Results[idx].(type) {
+				case *ast.BasicLit:
+					log.Println(lit.Kind)
+				case *ast.Ident:
+					log.Printf("error:%s", lit.Name)
+					if lit.Name != "nil" {
+						isReturnNil = false
+					}
+				}
+				if isReturnNil {
+					pass.Reportf(stmt.Pos(), "It returns nil in all the places where it should return error:%d", stmt.Pos())
+				}
+			}
 		}
 	})
 	return nil, nil
@@ -82,7 +76,7 @@ func errorCheker(n *ast.FuncDecl) (int, error) {
 			}
 		}
 		// 返り値の型が表示される
-		log.Println(t.Type)
+		// log.Println(t.Type)
 	}
 	if isErrorExist {
 		return index, nil

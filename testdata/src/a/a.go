@@ -1,12 +1,9 @@
 package a
 
-import "log"
-
-func sample1() (int, error) {
-	log.Println("helloworld")
-	return 0, nil
+func sample1() (string, error) {
+	return "helloworld", nil // want "It returns nil in all the places where it should return error"
 }
 
 func sample2() (int, error) {
-	return 0, nil
+	return 0, nil // want "It returns nil in all the places where it should return error"
 }
