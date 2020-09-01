@@ -3,6 +3,7 @@ package errchecker
 import (
 	"go/ast"
 	"log"
+	"strconv"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -21,50 +22,6 @@ var Analyzer = &analysis.Analyzer{
 	},
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	nodeFilter := []ast.Node{
-		(*ast.FuncDecl)(nil),
-	}
-	inspect.Preorder(nodeFilter, func(decl ast.Node) {
-		switch decl := decl.(type) {
-		case *ast.FuncDecl:
-			idx, err := errorCheker(decl)
-			if err != nil {
-				log.Println(err)
-			}
-			// 追加
-			// 本文decl.Body.Listからreturn文がある一行を取得している
-			for _, stmt := range decl.Body.List {
-				// return文を取得している
-				log.Println(stmt)
-				ret, _ := stmt.(*ast.ReturnStmt)
-				if ret == nil {
-					log.Println("ret return")
-					continue
-				}
-				// Resultsが0の時第一引数
-				var isReturnNil bool
-				switch lit := ret.Results[idx].(type) {
-				// case *ast.BasicLit:
-				// 	log.Println(lit.Kind)
-				// case *ast.CallExpr:
-				// 	log.Println("call statement")
-				case *ast.Ident:
-					log.Printf("error:%s", lit.Name)
-					if lit.Name == "nil" {
-						isReturnNil = true
-					}
-				}
-				if isReturnNil {
-					pass.Reportf(stmt.Pos(), "It returns nil in all the places where it should return error:%d", stmt.Pos())
-				}
-			}
-		}
-	})
-	return nil, nil
-}
-
 // errorChecker returns the index of error in the return value
 func errorCheker(n *ast.FuncDecl) (int, error) {
 	// 受け取った関数定義の引数リスト
@@ -79,12 +36,55 @@ func errorCheker(n *ast.FuncDecl) (int, error) {
 				index = idx
 			}
 		}
-		// 返り値の型が表示される
-		// log.Println(t.Type)
 	}
 	if isErrorExist {
 		return index, nil
 	}
 	// errorを返り値として持たなかったら
 	return index, nil
+}
+
+func search(body []ast.Stmt, idx int) (bool, error) {
+	isReturnNil := true
+	for _, stmt := range body {
+		switch let := stmt.(type) {
+		case *ast.ReturnStmt:
+			log.Println("return statement")
+			switch lit := let.Results[idx].(type) {
+			// nilの場合は*ast.Indentにふり分けられる
+			case *ast.Ident:
+				log.Printf("error:%s", lit.Name)
+				if lit.Name != "nil" {
+					return false, nil
+				}
+			default:
+				return false, nil
+			}
+		case *ast.IfStmt:
+			isReturnNil, _ = search(let.Body.List, idx)
+			log.Printf("if statement %s", strconv.FormatBool(isReturnNil))
+		}
+	}
+	return isReturnNil, nil
+}
+
+func run(pass *analysis.Pass) (interface{}, error) {
+	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	nodeFilter := []ast.Node{
+		(*ast.FuncDecl)(nil),
+	}
+	inspect.Preorder(nodeFilter, func(decl ast.Node) {
+		switch decl := decl.(type) {
+		case *ast.FuncDecl:
+			idx, err := errorCheker(decl)
+			flag, err := search(decl.Body.List, idx)
+			if err != nil {
+				log.Println(err)
+			}
+			if flag {
+				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
+			}
+		}
+	})
+	return nil, nil
 }
