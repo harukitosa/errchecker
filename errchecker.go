@@ -1,8 +1,8 @@
 package errchecker
 
 import (
+	"errors"
 	"go/ast"
-	"log"
 
 	"github.com/gostaticanalysis/analysisutil"
 	"golang.org/x/tools/go/analysis"
@@ -22,95 +22,84 @@ var Analyzer = &analysis.Analyzer{
 	},
 }
 
-// errorChecker returns the index of error in the return value
-// todo: 複数のエラーがあった場合の対処
-func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
-
-	var isErrorExist bool
-	index := -1
-	// 受け取った関数定義の引数リスト
-	// fieldList := n.Type.Results.List
-	// nType := n.Type
-	// if nType == nil {
-	// 	return -1, nil
-	// }
-	results := n.Type.Results
-	// 返り値を持たないのはerrorではないので−１を返す
-	if results == nil {
-		return -1, nil
-	}
-	fieldList := results.List
-	if fieldList == nil {
-		return -1, nil
-	}
-	for idx, t := range fieldList {
-		switch ty := t.Type.(type) {
-		case *ast.Ident:
-			// Question:ここを厳密に型比較で行う場合はどうしたらいいのか？
-			s := pass.TypesInfo.Types[ty]
-			if analysisutil.ImplementsError(s.Type) {
-				isErrorExist = true
-				index = idx
-			}
+func isNil(exp ast.Expr) bool {
+	switch lit := exp.(type) {
+	case *ast.Ident:
+		if lit.Name != "nil" {
+			return false
 		}
+	default:
+		return false
 	}
-	if isErrorExist {
-		return index, nil
-	}
-	// errorを返り値として持たなかったら
-	return index, nil
+	return true
 }
 
-func search(body []ast.Stmt, idx int) (bool, error) {
-	isReturnNil := true
-	var err error
+func search(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
-		return false, nil
+		return false
 	}
-
 	for _, stmt := range body {
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
 			if len(let.Results) <= idx {
-				return false, nil
+				return false
 			}
-			switch lit := let.Results[idx].(type) {
-			// nilの場合は*ast.Indentにふり分けられる
-			case *ast.Ident:
-				if lit.Name != "nil" {
-					return false, nil
-				}
-			default:
-				return false, nil
+			if !isNil(let.Results[idx]) {
+				return false
 			}
 		case *ast.IfStmt:
-			isReturnNil, err = search(let.Body.List, idx)
-			if err != nil {
-				return isReturnNil, err
-			}
+			return search(let.Body.List, idx)
 		case *ast.ForStmt:
-			isReturnNil, err = search(let.Body.List, idx)
-			if err != nil {
-				return isReturnNil, err
-			}
+			return search(let.Body.List, idx)
 		case *ast.SwitchStmt:
-			isReturnNil, err = search(let.Body.List, idx)
-			if err != nil {
-				return isReturnNil, err
+			return search(let.Body.List, idx)
+		}
+	}
+	return true
+}
+
+// errorChecker returns the index of error in the return value.
+// If there is no error in the return value, it returns -1
+func returnErrIndex(n *ast.FuncDecl, pass *analysis.Pass) int {
+	index := -1
+	results := n.Type.Results
+	if results == nil {
+		return -1
+	}
+	fieldList := results.List
+	if fieldList == nil {
+		return -1
+	}
+	for idx, t := range fieldList {
+		switch ty := t.Type.(type) {
+		case *ast.Ident:
+			s := pass.TypesInfo.Types[ty]
+			if analysisutil.ImplementsError(s.Type) {
+				index = idx
 			}
 		}
 	}
-	return isReturnNil, nil
+	return index
+}
+
+// Check if all places that return error return nil
+func errAllNil(decl *ast.FuncDecl, pass *analysis.Pass) bool {
+	idx := returnErrIndex(decl, pass)
+	if idx == -1 {
+		return false
+	}
+	flag := search(decl.Body.List, idx)
+	return flag
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	a, ok := pass.ResultOf[inspect.Analyzer]
 	if !ok {
-		log.Println("*inspector.Inspector assertion error")
+		return nil, errors.New("*inspector.Inspector assertion error")
 	}
 	inspect, ok := a.(*inspector.Inspector)
 	if !ok {
-		log.Println("*inspector.Inspector assertion error")
+		return nil, errors.New("*inspector.Inspector assertion error")
 	}
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
@@ -118,17 +107,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	inspect.Preorder(nodeFilter, func(decl ast.Node) {
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
-			// idxはエラーが現れる場所の数値
-			idx, err := errorCheker(decl, pass)
-			if err != nil {
-				log.Println(err)
-			}
-			flag, err := search(decl.Body.List, idx)
-			if err != nil {
-				log.Println(err)
-			}
-			if flag {
+			if errAllNil(decl, pass) {
 				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
+				return
 			}
 		}
 	})

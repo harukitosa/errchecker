@@ -10,3 +10,5 @@ func noreturn() {
 func sample2() (int, error) { // want "It returns nil in all the places where it should return error"
 	return 0, nil
 }
+
+func voidfunc() {}
