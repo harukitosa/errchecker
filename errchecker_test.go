@@ -11,5 +11,5 @@ import (
 func TestAnalyzer(t *testing.T) {
 	testdata := analysistest.TestData()
 	analysistest.Run(t, testdata, errchecker.Analyzer, "a")
+	analysistest.Run(t, testdata, errchecker.Analyzer, "b")
 }
-

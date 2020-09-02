@@ -25,10 +25,24 @@ var Analyzer = &analysis.Analyzer{
 // errorChecker returns the index of error in the return value
 // todo: 複数のエラーがあった場合の対処
 func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
-	// 受け取った関数定義の引数リスト
-	fieldList := n.Type.Results.List
+
 	var isErrorExist bool
 	index := -1
+	// 受け取った関数定義の引数リスト
+	// fieldList := n.Type.Results.List
+	// nType := n.Type
+	// if nType == nil {
+	// 	return -1, nil
+	// }
+	results := n.Type.Results
+	// 返り値を持たないのはerrorではないので−１を返す
+	if results == nil {
+		return -1, nil
+	}
+	fieldList := results.List
+	if fieldList == nil {
+		return -1, nil
+	}
 	for idx, t := range fieldList {
 		switch ty := t.Type.(type) {
 		case *ast.Ident:
@@ -50,9 +64,16 @@ func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
 func search(body []ast.Stmt, idx int) (bool, error) {
 	isReturnNil := true
 	var err error
+	if idx == -1 {
+		return false, nil
+	}
+
 	for _, stmt := range body {
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
+			if len(let.Results) <= idx {
+				return false, nil
+			}
 			switch lit := let.Results[idx].(type) {
 			// nilの場合は*ast.Indentにふり分けられる
 			case *ast.Ident:
@@ -68,6 +89,11 @@ func search(body []ast.Stmt, idx int) (bool, error) {
 				return isReturnNil, err
 			}
 		case *ast.ForStmt:
+			isReturnNil, err = search(let.Body.List, idx)
+			if err != nil {
+				return isReturnNil, err
+			}
+		case *ast.SwitchStmt:
 			isReturnNil, err = search(let.Body.List, idx)
 			if err != nil {
 				return isReturnNil, err
