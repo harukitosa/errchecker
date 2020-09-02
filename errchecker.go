@@ -35,7 +35,6 @@ func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
 			// Question:ここを厳密に型比較で行う場合はどうしたらいいのか？
 			s := pass.TypesInfo.Types[ty]
 			if analysisutil.ImplementsError(s.Type) {
-				log.Println("error")
 				isErrorExist = true
 				index = idx
 			}
@@ -50,6 +49,7 @@ func errorCheker(n *ast.FuncDecl, pass *analysis.Pass) (int, error) {
 
 func search(body []ast.Stmt, idx int) (bool, error) {
 	isReturnNil := true
+	var err error
 	for _, stmt := range body {
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
@@ -63,16 +63,29 @@ func search(body []ast.Stmt, idx int) (bool, error) {
 				return false, nil
 			}
 		case *ast.IfStmt:
-			isReturnNil, _ = search(let.Body.List, idx)
+			isReturnNil, err = search(let.Body.List, idx)
+			if err != nil {
+				return isReturnNil, err
+			}
 		case *ast.ForStmt:
-			isReturnNil, _ = search(let.Body.List, idx)
+			isReturnNil, err = search(let.Body.List, idx)
+			if err != nil {
+				return isReturnNil, err
+			}
 		}
 	}
 	return isReturnNil, nil
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	a, ok := pass.ResultOf[inspect.Analyzer]
+	if !ok {
+		log.Println("*inspector.Inspector assertion error")
+	}
+	inspect, ok := a.(*inspector.Inspector)
+	if !ok {
+		log.Println("*inspector.Inspector assertion error")
+	}
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
 	}

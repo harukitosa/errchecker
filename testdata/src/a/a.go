@@ -68,3 +68,18 @@ func sample9() (int, error) {
 		}
 	}
 }
+
+func sample10() (int, error) { // want "It returns nil in all the places where it should return error"
+	if false {
+		return 0, nil
+	}
+
+	a := 0
+	if false {
+		a = 1
+	} else {
+		return 0, nil
+	}
+
+	return a, nil
+}
