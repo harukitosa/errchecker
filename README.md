@@ -2,12 +2,35 @@
 
 ## 機能
 
-- error が返り値として存在する関数のうち nil でしか返していないものを指摘する
-- error を返り値として持つ関数で受け取っていない部分, \_を指摘する。そのあとの if 文での分岐も含めて
+- error が返り値として存在する関数のうち nil でしか返していないものを指摘します
+- Pointing out a function with a return value of error that only returns nil
 
-## 実装方針
+## sample
 
-- inspect.Analyzer にて走査する
-- 関数の定義を見つけて返り値を取得する
-- 返り値で error 型？を返している部分を保存しておく
-- 全て nil であれば指摘する
+対象ファイル
+
+```go
+package sample_test1
+
+func sample1() error {
+	if false {
+		s := 0
+		s++
+		if s >= 1 {
+			s++
+		} else {
+			s++
+			for {
+				return nil
+			}
+		}
+	}
+	return nil
+}
+```
+
+```zsh
+go vet -vettool=$(which errchecker) testdata/src/sample_test/sample_test1.go
+# command-line-arguments
+testdata/src/sample_test/sample_test1.go:3:1: It returns nil in all the places where it should return error. Please fix the return value
+```
