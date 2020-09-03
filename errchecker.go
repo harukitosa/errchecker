@@ -35,15 +35,36 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
-func isAnonyFunc(stmt *ast.AssignStmt) bool {
-	if len(stmt.Rhs) != 1 {
+func errAllNilAnon(lit *ast.FuncLit, pass *analysis.Pass) bool {
+	idx := returnErrIndexAnon(lit, pass)
+	if idx == -1 {
 		return false
 	}
-	_, ok := stmt.Rhs[0].(*ast.FuncLit)
-	if !ok {
-		return false
+	return search(lit.Body.List, idx)
+}
+
+// errorChecker returns the index of error in the return value.
+// If there is no error in the return value, it returns -1
+func returnErrIndexAnon(n *ast.FuncLit, pass *analysis.Pass) int {
+	index := -1
+	results := n.Type.Results
+	if results == nil {
+		return -1
 	}
-	return true
+	fieldList := results.List
+	if fieldList == nil {
+		return -1
+	}
+	for idx, t := range fieldList {
+		switch ty := t.Type.(type) {
+		case *ast.Ident:
+			s := pass.TypesInfo.Types[ty]
+			if analysisutil.ImplementsError(s.Type) {
+				index = idx
+			}
+		}
+	}
+	return index
 }
 
 func search(body []ast.Stmt, idx int) bool {
@@ -86,9 +107,9 @@ func search(body []ast.Stmt, idx int) bool {
 			if !flag {
 				return flag
 			}
-		case *ast.AssignStmt:
+			// case *ast.AssignStmt:
 			// Rhsがfunc litで返り値がerrorかどうか調べる関数
-			fmt.Printf("lit:%+v anoni:%t\n", let.Rhs[0], isAnonyFunc(let))
+			// 	fmt.Printf("lit:%+v anoni:%t\n", let.Rhs[0], isAnonyFunc(let))
 		}
 	}
 	// fmt.Printf("flag:%t\n", flag)
@@ -141,11 +162,18 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 	nodeFilter := []ast.Node{
 		(*ast.FuncDecl)(nil),
+		(*ast.FuncLit)(nil),
 	}
 	inspect.Preorder(nodeFilter, func(decl ast.Node) {
 		switch decl := decl.(type) {
 		case *ast.FuncDecl:
 			if errAllNil(decl, pass) {
+				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
+				return
+			}
+		case *ast.FuncLit:
+			fmt.Printf("func lit %+v\n", decl)
+			if errAllNilAnon(decl, pass) {
 				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
 				return
 			}
