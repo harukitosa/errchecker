@@ -34,46 +34,13 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
-func errAllNilAnon(lit *ast.FuncLit, pass *analysis.Pass) bool {
-	idx := returnErrIndexAnon(lit, pass)
-	if idx == -1 {
-		return false
-	}
-	return search(lit.Body.List, idx)
-}
-
-// errorChecker returns the index of error in the return value.
-// If there is no error in the return value, it returns -1
-func returnErrIndexAnon(n *ast.FuncLit, pass *analysis.Pass) int {
-	index := -1
-	results := n.Type.Results
-	if results == nil {
-		return -1
-	}
-	fieldList := results.List
-	if fieldList == nil {
-		return -1
-	}
-	for idx, t := range fieldList {
-		switch ty := t.Type.(type) {
-		case *ast.Ident:
-			s := pass.TypesInfo.Types[ty]
-			if analysisutil.ImplementsError(s.Type) {
-				index = idx
-			}
-		}
-	}
-	return index
-}
-
-func search(body []ast.Stmt, idx int) bool {
+// returnIdxNil checks if all nils are returned at the specified index
+func returnIdxNil(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
 		return false
 	}
 	flag := true
-	// fmt.Println("--------------------------------")
 	for _, stmt := range body {
-		// fmt.Printf("%+v\n", stmt)
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
 			if len(let.Results) <= idx {
@@ -82,45 +49,39 @@ func search(body []ast.Stmt, idx int) bool {
 			if !isNil(let.Results[idx]) {
 				return false
 			}
-			// fmt.Println("return stmt true")
 			return true
 		case *ast.IfStmt:
-			flag = search(let.Body.List, idx)
+			flag = returnIdxNil(let.Body.List, idx)
 			if let.Else != nil {
 				block, ok := let.Else.(*ast.BlockStmt)
 				if !ok {
 					continue
 				}
-				flag = search(block.List, idx)
+				flag = returnIdxNil(block.List, idx)
 			}
 			if !flag {
 				return flag
 			}
 		case *ast.ForStmt:
-			flag = search(let.Body.List, idx)
+			flag = returnIdxNil(let.Body.List, idx)
 			if !flag {
 				return flag
 			}
 		case *ast.SwitchStmt:
-			flag = search(let.Body.List, idx)
+			flag = returnIdxNil(let.Body.List, idx)
 			if !flag {
 				return flag
 			}
-			// case *ast.AssignStmt:
-			// Rhsがfunc litで返り値がerrorかどうか調べる関数
-			// 	fmt.Printf("lit:%+v anoni:%t\n", let.Rhs[0], isAnonyFunc(let))
 		}
 	}
-	// fmt.Printf("flag:%t\n", flag)
-	// fmt.Println("--------------------------------")
 	return flag
 }
 
 // errorChecker returns the index of error in the return value.
 // If there is no error in the return value, it returns -1
-func returnErrIndex(n *ast.FuncDecl, pass *analysis.Pass) int {
+func returnErrIndex(n *ast.FuncType, pass *analysis.Pass) int {
 	index := -1
-	results := n.Type.Results
+	results := n.Results
 	if results == nil {
 		return -1
 	}
@@ -141,13 +102,24 @@ func returnErrIndex(n *ast.FuncDecl, pass *analysis.Pass) int {
 }
 
 // Check if all places that return error return nil
-func errAllNil(decl *ast.FuncDecl, pass *analysis.Pass) bool {
-	idx := returnErrIndex(decl, pass)
-	if idx == -1 {
-		return false
+func errAllNil(node ast.Node, pass *analysis.Pass) bool {
+	switch n := node.(type) {
+	case *ast.FuncLit:
+		idx := returnErrIndex(n.Type, pass)
+		if idx == -1 {
+			return false
+		}
+		flag := returnIdxNil(n.Body.List, idx)
+		return flag
+	case *ast.FuncDecl:
+		idx := returnErrIndex(n.Type, pass)
+		if idx == -1 {
+			return false
+		}
+		flag := returnIdxNil(n.Body.List, idx)
+		return flag
 	}
-	flag := search(decl.Body.List, idx)
-	return flag
+	return false
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -164,18 +136,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.FuncLit)(nil),
 	}
 	inspect.Preorder(nodeFilter, func(decl ast.Node) {
-		switch decl := decl.(type) {
-		case *ast.FuncDecl:
-			if errAllNil(decl, pass) {
-				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
-				return
-			}
-		case *ast.FuncLit:
-			if errAllNilAnon(decl, pass) {
-				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
-				return
-			}
+		if errAllNil(decl, pass) {
+			pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
+			return
 		}
+
 	})
 	return nil, nil
 }
