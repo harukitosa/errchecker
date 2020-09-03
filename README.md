@@ -29,6 +29,8 @@ func sample1() error {
 }
 ```
 
+実行結果
+
 ```zsh
 go vet -vettool=$(which errchecker) testdata/src/sample_test/sample_test1.go
 # command-line-arguments
