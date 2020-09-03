@@ -1,6 +1,8 @@
-package sample_test1
+package sampletest
 
-import "errors"
+import (
+	"errors"
+)
 
 func sample1() error { // want "It returns nil in all the places where it should return error"
 	if false {

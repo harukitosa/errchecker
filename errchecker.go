@@ -34,7 +34,21 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
+// ifstmtProcess is *ast.IfStmt processe
+func ifstmtProcess(stmt *ast.IfStmt, idx int) bool {
+	flag := true
+	flag = isReturnNil(stmt.Body.List, idx)
+	switch e := stmt.Else.(type) {
+	case *ast.IfStmt:
+		flag = ifstmtProcess(e, idx)
+	case *ast.BlockStmt:
+		flag = isReturnNil(e.List, idx)
+	}
+	return flag
+}
+
 // isReturnNil checks if all nils are returned at the specified index
+// if return nil, this function return true
 func isReturnNil(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
 		return false
@@ -51,14 +65,7 @@ func isReturnNil(body []ast.Stmt, idx int) bool {
 			}
 			return true
 		case *ast.IfStmt:
-			flag = isReturnNil(let.Body.List, idx)
-			if let.Else != nil {
-				block, ok := let.Else.(*ast.BlockStmt)
-				if !ok {
-					continue
-				}
-				flag = isReturnNil(block.List, idx)
-			}
+			flag = ifstmtProcess(let, idx)
 			if !flag {
 				return flag
 			}
@@ -140,7 +147,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error. Please fix the return value")
 			return
 		}
-
 	})
 	return nil, nil
 }
