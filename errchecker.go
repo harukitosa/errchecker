@@ -2,6 +2,7 @@ package errchecker
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 
 	"github.com/gostaticanalysis/analysisutil"
@@ -34,11 +35,25 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
+func isAnonyFunc(stmt *ast.AssignStmt) bool {
+	if len(stmt.Rhs) != 1 {
+		return false
+	}
+	_, ok := stmt.Rhs[0].(*ast.FuncLit)
+	if !ok {
+		return false
+	}
+	return true
+}
+
 func search(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
 		return false
 	}
+	flag := true
+	// fmt.Println("--------------------------------")
 	for _, stmt := range body {
+		// fmt.Printf("%+v\n", stmt)
 		switch let := stmt.(type) {
 		case *ast.ReturnStmt:
 			if len(let.Results) <= idx {
@@ -47,15 +62,38 @@ func search(body []ast.Stmt, idx int) bool {
 			if !isNil(let.Results[idx]) {
 				return false
 			}
+			// fmt.Println("return stmt true")
+			return true
 		case *ast.IfStmt:
-			return search(let.Body.List, idx)
+			flag = search(let.Body.List, idx)
+			if let.Else != nil {
+				block, ok := let.Else.(*ast.BlockStmt)
+				if !ok {
+					continue
+				}
+				flag = search(block.List, idx)
+			}
+			if !flag {
+				return flag
+			}
 		case *ast.ForStmt:
-			return search(let.Body.List, idx)
+			flag = search(let.Body.List, idx)
+			if !flag {
+				return flag
+			}
 		case *ast.SwitchStmt:
-			return search(let.Body.List, idx)
+			flag = search(let.Body.List, idx)
+			if !flag {
+				return flag
+			}
+		case *ast.AssignStmt:
+			// Rhsがfunc litで返り値がerrorかどうか調べる関数
+			fmt.Printf("lit:%+v anoni:%t\n", let.Rhs[0], isAnonyFunc(let))
 		}
 	}
-	return true
+	// fmt.Printf("flag:%t\n", flag)
+	// fmt.Println("--------------------------------")
+	return flag
 }
 
 // errorChecker returns the index of error in the return value.

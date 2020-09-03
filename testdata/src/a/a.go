@@ -61,15 +61,16 @@ func sample8() (int, error) { // want "It returns nil in all the places where it
 	}
 }
 
-func sample9() (int, error) {
+func sample9() (string, error) {
+	s := "hoge"
 	for {
 		if false {
-			return 0, errors.New("error")
+			return s, errors.New("error")
 		}
 	}
 }
 
-func sample10() (int, error) { // want "It returns nil in all the places where it should return error"
+func sample10() (int, error) {
 	if false {
 		return 0, nil
 	}
@@ -78,7 +79,7 @@ func sample10() (int, error) { // want "It returns nil in all the places where i
 	if false {
 		a = 1
 	} else {
-		return 0, nil
+		return 0, errors.New("error")
 	}
 
 	return a, nil
