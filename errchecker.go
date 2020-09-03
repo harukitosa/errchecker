@@ -2,7 +2,6 @@ package errchecker
 
 import (
 	"errors"
-	"fmt"
 	"go/ast"
 
 	"github.com/gostaticanalysis/analysisutil"
@@ -172,7 +171,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				return
 			}
 		case *ast.FuncLit:
-			fmt.Printf("func lit %+v\n", decl)
 			if errAllNilAnon(decl, pass) {
 				pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
 				return
