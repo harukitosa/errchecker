@@ -34,8 +34,8 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
-// returnIdxNil checks if all nils are returned at the specified index
-func returnIdxNil(body []ast.Stmt, idx int) bool {
+// isReturnNil checks if all nils are returned at the specified index
+func isReturnNil(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
 		return false
 	}
@@ -51,24 +51,24 @@ func returnIdxNil(body []ast.Stmt, idx int) bool {
 			}
 			return true
 		case *ast.IfStmt:
-			flag = returnIdxNil(let.Body.List, idx)
+			flag = isReturnNil(let.Body.List, idx)
 			if let.Else != nil {
 				block, ok := let.Else.(*ast.BlockStmt)
 				if !ok {
 					continue
 				}
-				flag = returnIdxNil(block.List, idx)
+				flag = isReturnNil(block.List, idx)
 			}
 			if !flag {
 				return flag
 			}
 		case *ast.ForStmt:
-			flag = returnIdxNil(let.Body.List, idx)
+			flag = isReturnNil(let.Body.List, idx)
 			if !flag {
 				return flag
 			}
 		case *ast.SwitchStmt:
-			flag = returnIdxNil(let.Body.List, idx)
+			flag = isReturnNil(let.Body.List, idx)
 			if !flag {
 				return flag
 			}
@@ -109,14 +109,14 @@ func errAllNil(node ast.Node, pass *analysis.Pass) bool {
 		if idx == -1 {
 			return false
 		}
-		flag := returnIdxNil(n.Body.List, idx)
+		flag := isReturnNil(n.Body.List, idx)
 		return flag
 	case *ast.FuncDecl:
 		idx := returnErrIndex(n.Type, pass)
 		if idx == -1 {
 			return false
 		}
-		flag := returnIdxNil(n.Body.List, idx)
+		flag := isReturnNil(n.Body.List, idx)
 		return flag
 	}
 	return false
@@ -137,7 +137,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 	inspect.Preorder(nodeFilter, func(decl ast.Node) {
 		if errAllNil(decl, pass) {
-			pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error %d", decl.Pos())
+			pass.Reportf(decl.Pos(), "It returns nil in all the places where it should return error. Please fix the return value")
 			return
 		}
 
