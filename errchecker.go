@@ -34,38 +34,6 @@ func isNil(exp ast.Expr) bool {
 	return true
 }
 
-func errAllNilAnon(lit *ast.FuncLit, pass *analysis.Pass) bool {
-	idx := returnErrIndexAnon(lit, pass)
-	if idx == -1 {
-		return false
-	}
-	return search(lit.Body.List, idx)
-}
-
-// errorChecker returns the index of error in the return value.
-// If there is no error in the return value, it returns -1
-func returnErrIndexAnon(n *ast.FuncLit, pass *analysis.Pass) int {
-	index := -1
-	results := n.Type.Results
-	if results == nil {
-		return -1
-	}
-	fieldList := results.List
-	if fieldList == nil {
-		return -1
-	}
-	for idx, t := range fieldList {
-		switch ty := t.Type.(type) {
-		case *ast.Ident:
-			s := pass.TypesInfo.Types[ty]
-			if analysisutil.ImplementsError(s.Type) {
-				index = idx
-			}
-		}
-	}
-	return index
-}
-
 func search(body []ast.Stmt, idx int) bool {
 	if idx == -1 {
 		return false
@@ -106,9 +74,6 @@ func search(body []ast.Stmt, idx int) bool {
 			if !flag {
 				return flag
 			}
-			// case *ast.AssignStmt:
-			// Rhsがfunc litで返り値がerrorかどうか調べる関数
-			// 	fmt.Printf("lit:%+v anoni:%t\n", let.Rhs[0], isAnonyFunc(let))
 		}
 	}
 	// fmt.Printf("flag:%t\n", flag)
@@ -118,9 +83,9 @@ func search(body []ast.Stmt, idx int) bool {
 
 // errorChecker returns the index of error in the return value.
 // If there is no error in the return value, it returns -1
-func returnErrIndex(n *ast.FuncDecl, pass *analysis.Pass) int {
+func returnErrIndex(n *ast.FuncType, pass *analysis.Pass) int {
 	index := -1
-	results := n.Type.Results
+	results := n.Results
 	if results == nil {
 		return -1
 	}
@@ -140,9 +105,17 @@ func returnErrIndex(n *ast.FuncDecl, pass *analysis.Pass) int {
 	return index
 }
 
+func errAllNilAnon(lit *ast.FuncLit, pass *analysis.Pass) bool {
+	idx := returnErrIndex(lit.Type, pass)
+	if idx == -1 {
+		return false
+	}
+	return search(lit.Body.List, idx)
+}
+
 // Check if all places that return error return nil
 func errAllNil(decl *ast.FuncDecl, pass *analysis.Pass) bool {
-	idx := returnErrIndex(decl, pass)
+	idx := returnErrIndex(decl.Type, pass)
 	if idx == -1 {
 		return false
 	}
