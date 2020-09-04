@@ -5,6 +5,38 @@
 - error が返り値として存在する関数のうち nil でしか返していないものを指摘します
 - Pointing out a function with a return value of error that only returns nil
 
+## download build
+
+download
+
+```
+git clone https://github.com/harukitosa/errchecker
+```
+
+OR
+
+```
+go get github.com/harukitosa/errchecker
+```
+
+build
+
+errchecker のディレクトリで
+
+```
+cd cmd/errchecker
+go build
+mv errchecker $HOME/go/bin
+```
+
+実行
+
+```
+go vet -vettool=$(which errchecker) ./...
+```
+
+※ \$HOME/go/bin に PATH を通しておいてください
+
 ## sample
 
 対象ファイル
