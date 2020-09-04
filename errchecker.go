@@ -3,6 +3,7 @@ package errchecker
 import (
 	"errors"
 	"go/ast"
+	"reflect"
 
 	"github.com/gostaticanalysis/analysisutil"
 	"golang.org/x/tools/go/analysis"
@@ -25,13 +26,11 @@ var Analyzer = &analysis.Analyzer{
 func isNil(exp ast.Expr) bool {
 	switch lit := exp.(type) {
 	case *ast.Ident:
-		if lit.Name != "nil" {
-			return false
-		}
+		v := reflect.ValueOf(&lit.Obj).Elem()
+		return v.IsNil()
 	default:
 		return false
 	}
-	return true
 }
 
 // ifstmtProcess is *ast.IfStmt processe
