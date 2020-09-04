@@ -2,7 +2,7 @@
 
 ## 機能
 
-- error が返り値として存在する関数のうち nil でしか返していないものを指摘します。無駄に返り値にエラーをしていしている関数を見つけることができます。
+- error が返り値として存在する関数のうち nil でしか返していないものを指摘します。無駄に返り値にエラーを指定している関数を見つけることができます。
 - Pointing out a function with a return value of error that only returns nil
 
 ## How to download and build
