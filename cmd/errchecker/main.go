@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/harukitosa/merucari/errchecker"
+	"github.com/harukitosa/errchecker"
 	"golang.org/x/tools/go/analysis/unitchecker"
 )
 

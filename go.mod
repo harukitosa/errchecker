@@ -1,4 +1,4 @@
-module github.com/harukitosa/merucari/errchecker
+module github.com/harukitosa/errchecker
 
 go 1.14
 

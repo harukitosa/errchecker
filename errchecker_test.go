@@ -3,7 +3,7 @@ package errchecker_test
 import (
 	"testing"
 
-	"github.com/harukitosa/merucari/errchecker"
+	"github.com/harukitosa/errchecker"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
